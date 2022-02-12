@@ -31,4 +31,16 @@ services:
       - broker
     environment:
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-    command: bash -c "kafka-topics --bootstrap-server broker:9092 --create --topic test"
+    command: bash -c "kafka-topics --bootstrap-server broker:9092 --create --topic ${KAFKA_TOPIC}"
+
+  producers-sim:
+    container_name: producers-sim
+    depends_on:
+      - broker
+      - init
+    build:
+      context: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
