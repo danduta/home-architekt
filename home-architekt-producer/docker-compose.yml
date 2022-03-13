@@ -1,12 +1,12 @@
 ---
 version: '3'
+
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:6.2.0
     container_name: zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
+    env_file: .env
+
 
   broker:
     image: confluentinc/cp-kafka:6.2.0
@@ -15,22 +15,15 @@ services:
       - "9092:9092"
     depends_on:
       - zookeeper
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092,PLAINTEXT_INTERNAL://broker:29092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    env_file: .env
+
 
   init:
     image: confluentinc/cp-kafka:6.2.0
     container_name: init
     depends_on:
       - broker
-    environment:
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+    env_file: .env
     command: bash -c "kafka-topics --bootstrap-server broker:9092 --create --topic ${KAFKA_TOPIC}"
 
   producers-sim:
@@ -42,5 +35,4 @@ services:
       context: .
     ports:
       - "8000:8000"
-    env_file:
-      - .env
+    env_file: .env
