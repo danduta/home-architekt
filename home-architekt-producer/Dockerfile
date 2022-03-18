@@ -6,11 +6,13 @@ WORKDIR /app
 # copy the Project Object Model file
 COPY ./pom.xml ./pom.xml
 
+RUN mvn verify clean --fail-never
+
 # copy your other files
 COPY ./src ./src
 
 # build for release
-RUN mvn dependency:go-offline
+#RUN mvn dependency:go-offline
 RUN mvn package && cp target/home-architekt-producer-*-jar-with-dependencies.jar app.jar
 
 
