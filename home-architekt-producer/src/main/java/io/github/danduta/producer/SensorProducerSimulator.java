@@ -14,6 +14,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.PartitionInfo;
+import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.serialization.DoubleSerializer;
 import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -30,6 +31,7 @@ import java.time.temporal.TemporalUnit;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class SensorProducerSimulator {
@@ -110,26 +112,24 @@ public class SensorProducerSimulator {
         }
     }
 
-    private static void createKafkaTopics(Admin kafkaAdmin, Set<String> newTopics) throws InterruptedException, ExecutionException {
+    private static void createKafkaTopics(Admin kafkaAdmin, Set<String> newTopics) throws ExecutionException, InterruptedException {
         KafkaConsumer<Object, Object> dummyConsumer = new KafkaConsumer<>(props);
-        Set<String> existentTopics = dummyConsumer.listTopics(Duration.of(60, ChronoUnit.SECONDS)).keySet();
-
-        log.info("Existent topics: " + existentTopics);
-
-        newTopics.removeAll(existentTopics);
-
-        if (newTopics.isEmpty()) {
-            log.info("All needed topics are already created");
-            return;
-        }
-
-        log.info("Creating new topics: " + newTopics);
 
         Optional<Integer> partitions = Optional.empty();
         Optional<Short> replicationFactor = Optional.of((short) 1);
-        List<NewTopic> kafkaTopics = newTopics.stream().map(column -> new NewTopic(column, partitions, replicationFactor)).collect(Collectors.toList());
 
-        CreateTopicsResult topicsCreationResult = kafkaAdmin.createTopics(kafkaTopics);
-        topicsCreationResult.all().get();
+        for (String topic : newTopics) {
+            try {
+                List<NewTopic> topicWrapper = Collections.singletonList(new NewTopic(topic, partitions, replicationFactor));
+                CreateTopicsResult topicsCreationResult = kafkaAdmin.createTopics(topicWrapper);
+                topicsCreationResult.all().get();
+            } catch (ExecutionException | InterruptedException e) {
+                if (!(e.getCause() instanceof TopicExistsException)) {
+                    throw e;
+                }
+
+                log.info("Topic already existed: " + topic);
+            }
+        }
     }
 }
