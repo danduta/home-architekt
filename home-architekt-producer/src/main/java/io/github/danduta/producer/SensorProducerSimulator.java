@@ -124,9 +124,8 @@ public class SensorProducerSimulator {
                 CreateTopicsResult topicsCreationResult = kafkaAdmin.createTopics(topicWrapper);
                 topicsCreationResult.all().get();
             } catch (ExecutionException | InterruptedException e) {
-                if (!(e.getCause() instanceof TopicExistsException)) {
+                if (!(e.getCause() instanceof TopicExistsException))
                     throw e;
-                }
 
                 log.info("Topic already existed: " + topic);
             }

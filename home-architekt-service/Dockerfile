@@ -12,19 +12,17 @@ RUN mvn verify clean --fail-never
 COPY ./src ./src
 
 # build for release
-RUN mvn package && cp target/home-architekt-producer-*-jar-with-dependencies.jar app.jar
+RUN mvn package && cp target/home-architekt-service-*-jar-with-dependencies.jar app.jar
 
 # smaller, final base image
-FROM openjdk:8u171-jre-alpine
+FROM docker.io/bitnami/spark:3
 
 # set deployment directory
 WORKDIR /app
-
-# copy dataset
-COPY dataset.csv dataset.csv
 
 # copy over the built artifact from the maven image
 COPY --from=maven /app/app.jar ./app.jar
 
 # set the startup command to run your binary
-CMD ["java", "-jar", "/app/app.jar"]
+#CMD ["./bin/spark-submit", "--class", "io.github.danduta.service.Application", "--master", "spark://localhost:7077", "app.jar"]
+CMD spark-submit --class io.github.danduta.service.Application --master spark://spark-master:7077 ./app.jar
