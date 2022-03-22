@@ -8,6 +8,7 @@ services:
     env_file: env/zookeeper.env
     profiles:
       - kafka
+    restart: on-failure
 
   kafka-broker:
     image: confluentinc/cp-kafka:6.2.0
@@ -19,6 +20,7 @@ services:
     env_file: env/kafka.env
     profiles:
       - kafka
+    restart: on-failure
 
   home-architekt-producer:
     depends_on:
@@ -30,6 +32,7 @@ services:
     env_file: env/home-architekt-producer.env
     profiles:
        - producer
+    restart: always
 
   spark-master:
     image: docker.io/bitnami/spark:3

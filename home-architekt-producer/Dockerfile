@@ -1,5 +1,5 @@
 # our base build image
-FROM maven:3.5-jdk-8 as maven
+FROM maven:3.5-jdk-11 as maven
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ COPY ./src ./src
 RUN mvn package && cp target/home-architekt-producer-*-jar-with-dependencies.jar app.jar
 
 # smaller, final base image
-FROM openjdk:8u171-jre-alpine
+FROM openjdk:11-jre
 
 # set deployment directory
 WORKDIR /app

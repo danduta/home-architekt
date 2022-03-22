@@ -1,5 +1,5 @@
 # our base build image
-FROM maven:3.5-jdk-8 as maven
+FROM maven:3.5-jdk-11 as maven
 
 WORKDIR /app
 
