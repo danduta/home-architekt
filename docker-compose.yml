@@ -25,7 +25,9 @@ services:
   home-architekt-producer:
     depends_on:
       - kafka-broker
-    build: ./home-architekt-producer
+    build:
+      context: .
+      dockerfile: home-architekt-producer/Dockerfile
     image: home-architekt-producer:${HOME_ARCHITEKT_VERSION}
     ports:
       - "8000-8020:8000"
