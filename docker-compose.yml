@@ -34,7 +34,7 @@ services:
     env_file: env/home-architekt-producer.env
     profiles:
        - producer
-    restart: always
+    restart: on-failure
 
   spark-master:
     image: docker.io/bitnami/spark:3
@@ -59,7 +59,9 @@ services:
     depends_on:
       - kafka-broker
       - spark-worker
-    build: ./home-architekt-service
+    build:
+      context: .
+      dockerfile: home-architekt-service/Dockerfile
     image: home-architekt-service:${HOME_ARCHITEKT_VERSION}
     ports:
       - '4040:4040'
