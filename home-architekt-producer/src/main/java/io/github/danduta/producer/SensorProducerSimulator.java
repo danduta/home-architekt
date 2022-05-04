@@ -83,7 +83,7 @@ public class SensorProducerSimulator {
 
             ProducerRecord<UUID, SensorRecord> producerRecord = new ProducerRecord<>(topic,
                     producerId,
-                    new SensorRecord(System.currentTimeMillis(), kafkaValue));
+                    new SensorRecord(System.currentTimeMillis(), (Double) kafkaValue));
 
             producer.send(producerRecord);
         }

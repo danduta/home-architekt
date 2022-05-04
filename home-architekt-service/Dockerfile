@@ -20,7 +20,6 @@ COPY home-architekt-service/src ./src
 # build for release
 COPY --from=build-model /home-architekt-model-*.jar ./model.jar
 RUN mvn org.apache.maven.plugins:maven-install-plugin:2.5.2:install-file -Dfile=./model.jar
-RUN mvn verify --fail-never
 RUN mvn package && cp target/home-architekt-service-*-jar-with-dependencies.jar /service.jar
 
 # smaller, final base image
