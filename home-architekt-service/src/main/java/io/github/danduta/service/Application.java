@@ -1,12 +1,12 @@
 package io.github.danduta.service;
 
+import io.github.danduta.model.SensorRecord;
 import io.github.danduta.serde.SensorRecordDeserializer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.serialization.UUIDDeserializer;
 import org.apache.spark.SparkConf;
 import org.apache.spark.streaming.Durations;
-import org.apache.spark.streaming.api.java.JavaDStream;
 import org.apache.spark.streaming.api.java.JavaInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka010.ConsumerStrategies;
@@ -14,8 +14,7 @@ import org.apache.spark.streaming.kafka010.KafkaUtils;
 import org.apache.spark.streaming.kafka010.LocationStrategies;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import io.github.danduta.model.*;
+import scala.Tuple2;
 
 import java.util.*;
 
@@ -25,6 +24,8 @@ public class Application {
 
     public static void main(String[] args) {
         SparkConf conf = new SparkConf().setAppName(Application.class.getName());
+        conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
+        conf.registerKryoClasses(new Class[]{ConsumerRecord.class});
         JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(1));
 
         logger.info("Started Spark application.");
@@ -47,8 +48,20 @@ public class Application {
                         ConsumerStrategies.Subscribe(topics, kafkaParams)
                 );
 
-        JavaDStream<Double> values = stream.map(ConsumerRecord::value).map(SensorRecord::getValue);
-        values.print();
+        stream.
+                window(Durations.milliseconds(1000), Durations.milliseconds(1000)).
+                foreachRDD(rdd -> rdd
+                        .sortBy(record -> record.value().getTimestamp(), true, 1)
+                        .groupBy(ConsumerRecord::key).map(Tuple2::_2)
+                        .foreach(iterable -> {
+                            Iterator<ConsumerRecord<UUID, SensorRecord>> iterator = iterable.iterator();
+                            if (iterator.hasNext()) {
+                                String producerId = iterator.next().key().toString();
+                                logger.info("Starting group processing for producer: " + producerId);
+                            }
+
+                            iterable.forEach(record -> logger.info(record.value().toString()));
+                        }));
 
         jssc.start();
 

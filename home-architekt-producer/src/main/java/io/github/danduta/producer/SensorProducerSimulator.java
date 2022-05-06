@@ -40,7 +40,7 @@ public class SensorProducerSimulator {
             int threadCount = System.getenv(THREAD_COUNT) != null ?
                     Integer.parseInt(System.getenv(THREAD_COUNT)) : DEFAULT_THREAD_COUNT;
 
-            executorService = Executors.newFixedThreadPool(threadCount);
+            executorService = Executors.newFixedThreadPool(2 * threadCount);
             generators = new ArrayList<>(threadCount);
 
             for (int i = 0; i < threadCount; i++) {
@@ -78,9 +78,10 @@ public class SensorProducerSimulator {
                 trimmedRecord.entrySet().removeIf(entry -> !topics.contains(entry.getKey()));
 
                 processRecordRow(trimmedRecord, executorService);
-                
-                if (record.getRecordNumber() % 10000 == 0) {
-                    log.info("Successfully produced " + record.getRecordNumber() + " records...");
+
+                long idx = record.getRecordNumber();
+                if (idx % 1000 == 0) {
+                    log.info(String.format("Successfully processed %d CSV records for a total of %d...", idx, idx * generators.size()));
                 }
             }
 
