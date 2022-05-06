@@ -19,7 +19,7 @@ public class SensorRecordDeserializer implements Deserializer<SensorRecord> {
             return mapper.readValue(bytes, SensorRecord.class);
         } catch (Exception e) {
             logger.error("Deserialization failed");
-            throw new SerializationException("Failed to deserializer SensorRecord");
+            throw new SerializationException("Failed to deserializer SensorRecord", e);
         }
     }
 }
