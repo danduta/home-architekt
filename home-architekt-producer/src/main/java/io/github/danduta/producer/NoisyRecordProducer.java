@@ -6,6 +6,8 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.UUIDSerializer;
 
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.Properties;
 import java.util.Random;
 import java.util.UUID;
@@ -33,11 +35,17 @@ public class NoisyRecordProducer extends KafkaProducer<UUID, SensorRecord> imple
     public Void call() {
 
         final double value = currentValue * scale + RANDOM.nextGaussian();
+        final SensorRecord record = SensorRecord.builder()
+                .timestamp(Timestamp.from(Instant.now()))
+                .value(value)
+                .id(UUID.randomUUID())
+                .producerId(producerId)
+                .build();
 
         ProducerRecord<UUID, SensorRecord> producerRecord = new ProducerRecord<>(
                 currentTopic,
                 producerId,
-                new SensorRecord(System.currentTimeMillis(), value));
+                record);
 
         send(producerRecord);
         return null;
