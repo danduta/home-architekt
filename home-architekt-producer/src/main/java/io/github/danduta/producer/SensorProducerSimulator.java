@@ -1,15 +1,11 @@
 package io.github.danduta.producer;
 
-import io.github.danduta.model.SensorRecord;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
 import org.apache.kafka.clients.admin.NewTopic;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.log4j.Logger;
 
@@ -19,26 +15,51 @@ import java.io.IOException;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class SensorProducerSimulator {
 
     private static final String DATASET_CSV_PATH = "DATASET_CSV_PATH";
+    private static final String THREAD_COUNT = "PRODUCER_THREAD_COUNT";
+    private static final String PRODUCER_TOPICS = "PRODUCER_TOPICS";
+
+    private static final String DEFAULT_TOPIC = "use";
+    private static final int DEFAULT_THREAD_COUNT = 5;
 
     private static final Properties props = new Properties();
-    private static final UUID producerId = UUID.randomUUID();
     private static final Logger log = Logger.getLogger(SensorProducerSimulator.class);
+
+    private static ExecutorService executorService;
+    private static List<NoisyRecordProducer> generators;
 
     static {
         try {
             props.load(ClassLoader.getSystemClassLoader().getResourceAsStream("kafka.properties"));
+
+            int threadCount = System.getenv(THREAD_COUNT) != null ?
+                    Integer.parseInt(System.getenv(THREAD_COUNT)) : DEFAULT_THREAD_COUNT;
+
+            executorService = Executors.newFixedThreadPool(threadCount);
+            generators = new ArrayList<>(threadCount);
+
+            for (int i = 0; i < threadCount; i++) {
+                generators.add(new NoisyRecordProducer(props));
+            }
         } catch (IOException e) {
             log.error("Error while loading properties from jar", e);
+        } catch (NumberFormatException e) {
+            log.error("Couldn't parse thread count environment variable", e);
         }
     }
 
     public static void main(String[] args) {
         Admin kafkaAdmin = Admin.create(props);
-        KafkaProducer<UUID, SensorRecord> producer = new KafkaProducer<>(props);
+
+        String topicsString = System.getenv(PRODUCER_TOPICS);
+        Set<String> topics = topicsString != null ?
+                new HashSet<>(Arrays.asList(topicsString.split("\\s*,\\s*"))) :
+                new HashSet<>(Collections.singletonList(DEFAULT_TOPIC));
 
         try {
             String datasetPath = System.getenv(DATASET_CSV_PATH);
@@ -48,50 +69,55 @@ public class SensorProducerSimulator {
             CSVParser records = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(in);
 
             Map<String, Integer> headerMap = records.getHeaderMap();
-            headerMap.remove("time");
+            assert headerMap.keySet().containsAll(topics);
 
-            createKafkaTopics(kafkaAdmin, headerMap.keySet());
+            createKafkaTopics(kafkaAdmin, topics);
 
             for (CSVRecord record : records) {
-                produceRecord(producer, record);
+                Map<String, String> trimmedRecord = record.toMap();
+                trimmedRecord.entrySet().removeIf(entry -> !topics.contains(entry.getKey()));
+
+                processRecordRow(trimmedRecord, executorService);
+                
+                if (record.getRecordNumber() % 10000 == 0) {
+                    log.info("Successfully produced " + record.getRecordNumber() + " records...");
+                }
             }
+
+            log.info("Successfully produced a total of " + records.getRecordNumber() + " records.");
         } catch (FileNotFoundException e) {
             log.error("Dataset could not be found", e);
         } catch (IOException e) {
             log.error("Exception occurred while reading the dataset", e);
         } catch (Exception e) {
-            log.error(e.getMessage());
+            log.error(e);
         } finally {
-            producer.flush();
-            producer.close();
+            generators.forEach(NoisyRecordProducer::flush);
+            generators.forEach(NoisyRecordProducer::close);
+
+            executorService.shutdown();
         }
     }
 
-    private static void produceRecord(KafkaProducer<UUID, SensorRecord> producer, CSVRecord record) {
-        Map<String, String> recordHeaderMap = record.toMap();
+    private static void processRecordRow(Map<String, String> record, ExecutorService executorService) throws InterruptedException {
 
-        for (Entry<String, String> e : recordHeaderMap.entrySet()) {
-            String topic = e.getKey();
+        for (Entry<String, String> e : record.entrySet()) {
+            String kafkaTopic = e.getKey();
             String valueString = e.getValue();
 
-            Object kafkaValue;
+            double kafkaValue;
             try {
-                kafkaValue = Double.valueOf(valueString);
+                kafkaValue = Double.parseDouble(valueString);
             } catch (NumberFormatException ignored) {
-                kafkaValue = valueString;
+                continue;
             }
 
-            ProducerRecord<UUID, SensorRecord> producerRecord = new ProducerRecord<>(topic,
-                    producerId,
-                    new SensorRecord(System.currentTimeMillis(), (Double) kafkaValue));
-
-            producer.send(producerRecord);
+            generators.forEach(generator -> generator.setCurrent(kafkaValue, kafkaTopic));
+            executorService.invokeAll(generators);
         }
     }
 
     private static void createKafkaTopics(Admin kafkaAdmin, Set<String> newTopics) throws ExecutionException, InterruptedException {
-        KafkaConsumer<Object, Object> dummyConsumer = new KafkaConsumer<>(props);
-
         Optional<Integer> partitions = Optional.empty();
         Optional<Short> replicationFactor = Optional.of((short) 1);
 
@@ -104,7 +130,7 @@ public class SensorProducerSimulator {
                 if (!(e.getCause() instanceof TopicExistsException))
                     throw e;
 
-                log.info("Topic already existed: " + topic);
+                log.warn("Topic already existed: " + topic);
             }
         }
     }

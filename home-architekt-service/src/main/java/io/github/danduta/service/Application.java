@@ -47,7 +47,7 @@ public class Application {
                         ConsumerStrategies.Subscribe(topics, kafkaParams)
                 );
 
-        JavaDStream<SensorRecord> values = stream.map(ConsumerRecord::value);
+        JavaDStream<Double> values = stream.map(ConsumerRecord::value).map(SensorRecord::getValue);
         values.print();
 
         jssc.start();
