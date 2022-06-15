@@ -20,6 +20,8 @@ import java.util.*;
 
 public class Application {
 
+    private static final String KAFKA_ENDPOINT = "KAFKA_ENDPOINT";
+
     public static final Logger logger = LoggerFactory.getLogger(Application.class);
 
     public static void main(String[] args) {
@@ -31,7 +33,7 @@ public class Application {
         logger.info("Started Spark application.");
 
         Map<String, Object> kafkaParams = new HashMap<>();
-        kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:2181,localhost:9092");
+        kafkaParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv(KAFKA_ENDPOINT));
         kafkaParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, UUIDDeserializer.class);
         kafkaParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, SensorRecordDeserializer.class);
         kafkaParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");

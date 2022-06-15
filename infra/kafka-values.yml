@@ -1,0 +1,11 @@
+rbac:
+  create: true
+externalAccess:
+  enabled: true
+  service:
+    type: LoadBalancer
+  autoDiscovery:
+    enabled: true
+deleteTopicEnable: true
+replicaCount: 3
+

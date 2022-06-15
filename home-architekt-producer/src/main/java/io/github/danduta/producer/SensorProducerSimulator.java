@@ -6,6 +6,7 @@ import org.apache.commons.csv.CSVRecord;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.CreateTopicsResult;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.log4j.Logger;
 
@@ -17,15 +18,31 @@ import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 public class SensorProducerSimulator {
 
     private static final String DATASET_CSV_PATH = "DATASET_CSV_PATH";
     private static final String THREAD_COUNT = "PRODUCER_THREAD_COUNT";
     private static final String PRODUCER_TOPICS = "PRODUCER_TOPICS";
+    private static final String KAFKA_ENDPOINT = "KAFKA_ENDPOINT";
+    private static final String PARTITION_COUNT = "KAFKA_TOPIC_PARTITION_COUNT";
+    private static final String REPLICATION_FACTOR = "KAFKA_TOPIC_REPLICATION_FACTOR";
+
+    private static final Set<String> REQUIRED_ENV_VARS = Set.of(
+            DATASET_CSV_PATH,
+            THREAD_COUNT,
+            PRODUCER_TOPICS,
+            KAFKA_ENDPOINT,
+            PARTITION_COUNT,
+            REPLICATION_FACTOR
+    );
 
     private static final String DEFAULT_TOPIC = "use";
     private static final int DEFAULT_THREAD_COUNT = 5;
+
+    private static int partitionCount;
+    private static short replicationFactor;
 
     private static final Properties props = new Properties();
     private static final Logger log = Logger.getLogger(SensorProducerSimulator.class);
@@ -35,7 +52,13 @@ public class SensorProducerSimulator {
 
     static {
         try {
+            checkEnvVars();
+
+            partitionCount = Integer.parseInt(System.getenv(PARTITION_COUNT));
+            replicationFactor = Short.parseShort(System.getenv(REPLICATION_FACTOR));
+
             props.load(ClassLoader.getSystemClassLoader().getResourceAsStream("kafka.properties"));
+            props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv(KAFKA_ENDPOINT));
 
             int threadCount = System.getenv(THREAD_COUNT) != null ?
                     Integer.parseInt(System.getenv(THREAD_COUNT)) : DEFAULT_THREAD_COUNT;
@@ -53,13 +76,23 @@ public class SensorProducerSimulator {
         }
     }
 
+    private static void checkEnvVars() {
+        Set<String> missingEnvVars = new HashSet<>(REQUIRED_ENV_VARS);
+        missingEnvVars.removeIf(var -> System.getenv(var) != null);
+
+        if (!missingEnvVars.isEmpty()) {
+            throw new RuntimeException("The following environment variables are missing: " + missingEnvVars);
+        }
+
+    }
+
     public static void main(String[] args) {
         Admin kafkaAdmin = Admin.create(props);
 
         String topicsString = System.getenv(PRODUCER_TOPICS);
-        Set<String> topics = topicsString != null ?
-                new HashSet<>(Arrays.asList(topicsString.split("\\s*,\\s*"))) :
-                new HashSet<>(Collections.singletonList(DEFAULT_TOPIC));
+        List<String> topics = topicsString != null ?
+                Arrays.asList(topicsString.split("\\s*,\\s*")) :
+                Collections.singletonList(DEFAULT_TOPIC);
 
         try {
             String datasetPath = System.getenv(DATASET_CSV_PATH);
@@ -85,7 +118,7 @@ public class SensorProducerSimulator {
                 }
             }
 
-            log.info("Successfully produced a total of " + records.getRecordNumber() + " records.");
+            log.info("Successfully produced a total of " + records.getRecordNumber() * generators.size() + " records.");
         } catch (FileNotFoundException e) {
             log.error("Dataset could not be found", e);
         } catch (IOException e) {
@@ -113,26 +146,25 @@ public class SensorProducerSimulator {
                 continue;
             }
 
-            generators.forEach(generator -> generator.setCurrent(kafkaValue, kafkaTopic));
-            executorService.invokeAll(generators);
+            generators.forEach(generator -> {
+                generator.setCurrent(kafkaValue, kafkaTopic);
+                executorService.submit(generator);
+            });
+
         }
     }
 
-    private static void createKafkaTopics(Admin kafkaAdmin, Set<String> newTopics) throws ExecutionException, InterruptedException {
-        Optional<Integer> partitions = Optional.empty();
-        Optional<Short> replicationFactor = Optional.of((short) 1);
+    private static void createKafkaTopics(Admin kafkaAdmin, List<String> newTopics) throws ExecutionException, InterruptedException {
+        Optional<Integer> topicPartitions = Optional.of(partitionCount);
+        Optional<Short> topicReplicationFactor = Optional.of(replicationFactor);
 
-        for (String topic : newTopics) {
-            try {
-                List<NewTopic> topicWrapper = Collections.singletonList(new NewTopic(topic, partitions, replicationFactor));
-                CreateTopicsResult topicsCreationResult = kafkaAdmin.createTopics(topicWrapper);
-                topicsCreationResult.all().get();
-            } catch (ExecutionException | InterruptedException e) {
-                if (!(e.getCause() instanceof TopicExistsException))
-                    throw e;
-
-                log.warn("Topic already existed: " + topic);
-            }
+        try {
+            List<NewTopic> kafkaTopics = newTopics.stream().map(topicName -> new NewTopic(topicName, topicPartitions, topicReplicationFactor)).collect(Collectors.toList());
+            CreateTopicsResult topicsCreationResult = kafkaAdmin.createTopics(kafkaTopics);
+            topicsCreationResult.all().get();
+        } catch (ExecutionException | InterruptedException e) {
+            if (!(e.getCause() instanceof TopicExistsException))
+                throw e;
         }
     }
 }

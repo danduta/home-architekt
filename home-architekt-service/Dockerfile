@@ -15,11 +15,12 @@ FROM maven:3.5-jdk-11 as build-service
 WORKDIR /service
 # copy the Project Object Model file and check dependencies
 COPY home-architekt-service/pom.xml ./pom.xml
+COPY --from=build-model /home-architekt-model-*.jar ./model.jar
+RUN mvn org.apache.maven.plugins:maven-install-plugin:2.5.2:install-file -Dfile=./model.jar
+RUN mvn dependency:go-offline
 # copy source files
 COPY home-architekt-service/src ./src
 # build for release
-COPY --from=build-model /home-architekt-model-*.jar ./model.jar
-RUN mvn org.apache.maven.plugins:maven-install-plugin:2.5.2:install-file -Dfile=./model.jar
 RUN mvn package && cp target/home-architekt-service-*-jar-with-dependencies.jar /service.jar
 
 # smaller, final base image
