@@ -8,6 +8,7 @@ import org.apache.kafka.clients.admin.CreateTopicsResult;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.errors.TopicExistsException;
+import org.apache.kafka.common.protocol.types.Field;
 import org.apache.log4j.Logger;
 
 import java.io.FileNotFoundException;
@@ -39,6 +40,7 @@ public class SensorProducerSimulator {
     );
 
     private static final String DEFAULT_TOPIC = "use";
+    private static final String KAFKA_OUTLIERS_TOPIC = "outliers";
     private static final int DEFAULT_THREAD_COUNT = 5;
 
     private static int partitionCount;
@@ -89,10 +91,10 @@ public class SensorProducerSimulator {
     public static void main(String[] args) {
         Admin kafkaAdmin = Admin.create(props);
 
-        String topicsString = System.getenv(PRODUCER_TOPICS);
-        List<String> topics = topicsString != null ?
-                Arrays.asList(topicsString.split("\\s*,\\s*")) :
-                Collections.singletonList(DEFAULT_TOPIC);
+
+        List<String> topics = new ArrayList<>(List.of(System.getenv(PRODUCER_TOPICS).split("\\s*,\\s*")));
+
+        topics.add(KAFKA_OUTLIERS_TOPIC);
 
         try {
             String datasetPath = System.getenv(DATASET_CSV_PATH);

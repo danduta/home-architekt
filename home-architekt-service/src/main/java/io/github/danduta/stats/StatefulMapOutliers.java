@@ -10,12 +10,12 @@ import scala.Tuple3;
 
 import java.util.UUID;
 
-public final class StatefulMapOutliers implements Function3<UUID, Optional<SensorRecord>, State<Tuple3<Long, Double, Double>>, Tuple2<UUID, Boolean>> {
+public final class StatefulMapOutliers implements Function3<UUID, Optional<SensorRecord>, State<Tuple3<Long, Double, Double>>, Tuple2<SensorRecord, Boolean>> {
 
     private StatefulMapOutliers() {}
 
     @Override
-    public Tuple2<UUID, Boolean> call(UUID producerId, Optional<SensorRecord> sensorRecordOptional, State<Tuple3<Long, Double, Double>> state) throws Exception {
+    public Tuple2<SensorRecord, Boolean> call(UUID producerId, Optional<SensorRecord> sensorRecordOptional, State<Tuple3<Long, Double, Double>> state) throws Exception {
         if (!sensorRecordOptional.isPresent()) {
             return null;
         }
@@ -25,7 +25,7 @@ public final class StatefulMapOutliers implements Function3<UUID, Optional<Senso
 
         if (!state.exists()) {
             state.update(Tuple3.apply(1L, currentValue, 0.0));
-            return Tuple2.apply(record.getId(), false);
+            return Tuple2.apply(record, false);
         }
 
         Tuple3<Long, Double, Double> recordState = state.get();
@@ -43,14 +43,14 @@ public final class StatefulMapOutliers implements Function3<UUID, Optional<Senso
 
         state.update(Tuple3.apply(newCount, newMean, newVariance));
 
-        return Tuple2.apply(record.getId(), isOutlier);
+        return Tuple2.apply(record, isOutlier);
     }
 
     public static StatefulMapOutliers build() {
         return new StatefulMapOutliers();
     }
 
-    public StateSpec<UUID, SensorRecord, Tuple3<Long, Double, Double>, Tuple2<UUID, Boolean>> getSpec() {
+    public StateSpec<UUID, SensorRecord, Tuple3<Long, Double, Double>, Tuple2<SensorRecord, Boolean>> getSpec() {
         return StateSpec.function(this);
     }
 }
