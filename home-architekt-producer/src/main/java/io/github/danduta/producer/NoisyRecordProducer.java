@@ -11,30 +11,19 @@ import java.time.Instant;
 import java.util.Properties;
 import java.util.Random;
 import java.util.UUID;
-import java.util.concurrent.Callable;
 
-public class NoisyRecordProducer extends KafkaProducer<UUID, SensorRecord> implements Callable<Void> {
+public class NoisyRecordProducer extends KafkaProducer<UUID, SensorRecord> {
 
     private static final Random RANDOM = new Random();
-    private final double scale = RANDOM.nextDouble() * 10.0 + 1.0;
-    private final UUID producerId = UUID.randomUUID();
 
-    private double currentValue;
-    private String currentTopic;
 
-    public NoisyRecordProducer(Properties properties) {
+    protected NoisyRecordProducer(Properties properties) {
         super(properties, new UUIDSerializer(), new SensorRecordSerializer());
     }
 
-    public void setCurrent(double value, String topic) {
-        currentValue = value;
-        currentTopic = topic;
-    }
+    public void send(String topic, UUID producerId, double value, double scale) {
+        value = value * scale + RANDOM.nextGaussian();
 
-    @Override
-    public Void call() {
-
-        final double value = currentValue * scale + RANDOM.nextGaussian();
         final SensorRecord record = SensorRecord.builder()
                 .timestamp(Timestamp.from(Instant.now()))
                 .value(value)
@@ -43,12 +32,11 @@ public class NoisyRecordProducer extends KafkaProducer<UUID, SensorRecord> imple
                 .build();
 
         ProducerRecord<UUID, SensorRecord> producerRecord = new ProducerRecord<>(
-                currentTopic,
+                topic,
                 producerId,
                 record);
 
         send(producerRecord);
-        return null;
     }
 }
 

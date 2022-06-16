@@ -1,7 +1,8 @@
 package io.github.danduta.app;
 
 import io.github.danduta.instrumentation.InstrumentedNoisyRecordProducer;
-import io.github.danduta.producer.NoisyRecordProducer;
+import io.github.danduta.producer.NoisyRecordCallback;
+import io.github.danduta.producer.NoisyRecordProducerPattern;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -52,7 +53,8 @@ public class SensorProducerSimulator {
     private static final Logger log = Logger.getLogger(SensorProducerSimulator.class);
 
     private static ExecutorService executorService;
-    private static List<NoisyRecordProducer> generators;
+
+    private static final Set<NoisyRecordProducerPattern> noisePatterns = new HashSet<>();
 
     static {
         try {
@@ -64,14 +66,14 @@ public class SensorProducerSimulator {
             props.load(ClassLoader.getSystemClassLoader().getResourceAsStream("kafka.properties"));
             props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv(KAFKA_ENDPOINT));
 
+            InstrumentedNoisyRecordProducer.init(props);
+
             int threadCount = System.getenv(THREAD_COUNT) != null ?
                     Integer.parseInt(System.getenv(THREAD_COUNT)) : DEFAULT_THREAD_COUNT;
 
             executorService = Executors.newFixedThreadPool(2 * threadCount);
-            generators = new ArrayList<>(threadCount);
-
             for (int i = 0; i < threadCount; i++) {
-                generators.add(new InstrumentedNoisyRecordProducer(props));
+                noisePatterns.add(new NoisyRecordProducerPattern());
             }
         } catch (IOException e) {
             log.error("Error while loading properties from jar", e);
@@ -87,7 +89,6 @@ public class SensorProducerSimulator {
         if (!missingEnvVars.isEmpty()) {
             throw new RuntimeException("The following environment variables are missing: " + missingEnvVars);
         }
-
     }
 
     public static void main(String[] args) {
@@ -130,32 +131,25 @@ public class SensorProducerSimulator {
         } catch (Exception e) {
             log.error(e);
         } finally {
-            generators.forEach(NoisyRecordProducer::flush);
-            generators.forEach(NoisyRecordProducer::close);
-
             executorService.shutdown();
             InstrumentedNoisyRecordProducer.stop();
         }
     }
 
-    private static void processRecordRow(Map<String, String> record, ExecutorService executorService) throws InterruptedException {
+    private static void processRecordRow(Map<String, String> record, ExecutorService executorService) {
 
         for (Entry<String, String> e : record.entrySet()) {
-            String kafkaTopic = e.getKey();
+            String topic = e.getKey();
             String valueString = e.getValue();
 
-            double kafkaValue;
+            double value;
             try {
-                kafkaValue = Double.parseDouble(valueString);
+                value = Double.parseDouble(valueString);
             } catch (NumberFormatException ignored) {
                 continue;
             }
 
-            generators.forEach(generator -> {
-                generator.setCurrent(kafkaValue, kafkaTopic);
-                executorService.submit(generator);
-            });
-
+            noisePatterns.forEach(pattern -> executorService.submit(new NoisyRecordCallback(topic, value, pattern)));
         }
     }
 
