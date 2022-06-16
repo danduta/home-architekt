@@ -1,5 +1,7 @@
-package io.github.danduta.producer;
+package io.github.danduta.app;
 
+import io.github.danduta.instrumentation.InstrumentedNoisyRecordProducer;
+import io.github.danduta.producer.NoisyRecordProducer;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -8,7 +10,6 @@ import org.apache.kafka.clients.admin.CreateTopicsResult;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.errors.TopicExistsException;
-import org.apache.kafka.common.protocol.types.Field;
 import org.apache.log4j.Logger;
 
 import java.io.FileNotFoundException;
@@ -29,6 +30,7 @@ public class SensorProducerSimulator {
     private static final String KAFKA_ENDPOINT = "KAFKA_ENDPOINT";
     private static final String PARTITION_COUNT = "KAFKA_TOPIC_PARTITION_COUNT";
     private static final String REPLICATION_FACTOR = "KAFKA_TOPIC_REPLICATION_FACTOR";
+    private static final String LOOP_PRODUCER = "LOOP_PRODUCER";
 
     private static final Set<String> REQUIRED_ENV_VARS = Set.of(
             DATASET_CSV_PATH,
@@ -36,10 +38,10 @@ public class SensorProducerSimulator {
             PRODUCER_TOPICS,
             KAFKA_ENDPOINT,
             PARTITION_COUNT,
-            REPLICATION_FACTOR
+            REPLICATION_FACTOR,
+            LOOP_PRODUCER
     );
 
-    private static final String DEFAULT_TOPIC = "use";
     private static final String KAFKA_OUTLIERS_TOPIC = "outliers";
     private static final int DEFAULT_THREAD_COUNT = 5;
 
@@ -69,7 +71,7 @@ public class SensorProducerSimulator {
             generators = new ArrayList<>(threadCount);
 
             for (int i = 0; i < threadCount; i++) {
-                generators.add(new NoisyRecordProducer(props));
+                generators.add(new InstrumentedNoisyRecordProducer(props));
             }
         } catch (IOException e) {
             log.error("Error while loading properties from jar", e);
@@ -90,8 +92,6 @@ public class SensorProducerSimulator {
 
     public static void main(String[] args) {
         Admin kafkaAdmin = Admin.create(props);
-
-
         List<String> topics = new ArrayList<>(List.of(System.getenv(PRODUCER_TOPICS).split("\\s*,\\s*")));
 
         topics.add(KAFKA_OUTLIERS_TOPIC);
@@ -108,19 +108,21 @@ public class SensorProducerSimulator {
 
             createKafkaTopics(kafkaAdmin, topics);
 
-            for (CSVRecord record : records) {
-                Map<String, String> trimmedRecord = record.toMap();
-                trimmedRecord.entrySet().removeIf(entry -> !topics.contains(entry.getKey()));
+            boolean loopProducers = Boolean.parseBoolean(System.getenv(LOOP_PRODUCER));
 
-                processRecordRow(trimmedRecord, executorService);
+            do {
+                for (CSVRecord record : records) {
+                    Map<String, String> trimmedRecord = record.toMap();
+                    trimmedRecord.entrySet().removeIf(entry -> !topics.contains(entry.getKey()));
 
-                long idx = record.getRecordNumber();
-                if (idx % 1000 == 0) {
-                    log.info(String.format("Successfully processed %d CSV records for a total of %d...", idx, idx * generators.size()));
+                    processRecordRow(trimmedRecord, executorService);
                 }
-            }
 
-            log.info("Successfully produced a total of " + records.getRecordNumber() * generators.size() + " records.");
+                if (loopProducers) {
+                    in = new FileReader(datasetPath);
+                    records = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(in);
+                }
+            } while (loopProducers);
         } catch (FileNotFoundException e) {
             log.error("Dataset could not be found", e);
         } catch (IOException e) {
@@ -132,6 +134,7 @@ public class SensorProducerSimulator {
             generators.forEach(NoisyRecordProducer::close);
 
             executorService.shutdown();
+            InstrumentedNoisyRecordProducer.stop();
         }
     }
 

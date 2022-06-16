@@ -34,9 +34,7 @@ public class Application {
         SparkConf conf = new SparkConf().setAppName(Application.class.getName());
         conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
         conf.set("spark.streaming.backpressure.enabled", "true");
-        conf.set("spark.streaming.receiver.maxRate", "5000");
-        conf.set("spark.streaming.backpressure.initialRate", "5000");
-        conf.set("spark.streaming.kafka.maxRatePerPartition", "5000");
+        conf.set("spark.streaming.backpressure.initialRate", "100000");
         conf.registerKryoClasses(new Class[]{ConsumerRecord.class});
         conf.setExecutorEnv(KAFKA_ENDPOINT, System.getenv(KAFKA_ENDPOINT));
 

@@ -47,7 +47,7 @@
                         <manifest>
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>lib/</classpathPrefix>
-                            <mainClass>io.github.danduta.producer.SensorProducerSimulator</mainClass>
+                            <mainClass>io.github.danduta.app.SensorProducerSimulator</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
