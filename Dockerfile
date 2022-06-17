@@ -32,4 +32,4 @@ WORKDIR /app
 COPY --from=build-service /service.jar .
 
 # set the startup command to run your binary
-CMD spark-submit --class io.github.danduta.app.SparkOutlierDetector --master spark://spark-master:7077 ./service.jar
+CMD spark-submit --class io.github.danduta.app.SparkOutlierDetector --master spark://10.40.129.201:7077 ./service.jar
