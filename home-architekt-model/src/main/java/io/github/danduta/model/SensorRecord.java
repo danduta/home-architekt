@@ -15,13 +15,13 @@ import java.util.UUID;
 @Getter
 @AllArgsConstructor
 @ToString
-public class SensorRecord implements Serializable {
+public class SensorRecord implements PotentialOutlier, Serializable {
 
     @JsonFormat(shape= JsonFormat.Shape.NUMBER_INT, pattern="s")
     @JsonProperty("timestamp")
     private final Timestamp timestamp;
     @JsonProperty("value")
-    private final Double value;
+    private final double value;
     @JsonProperty("id")
     private final UUID id;
     @JsonProperty("producerId")
@@ -29,7 +29,7 @@ public class SensorRecord implements Serializable {
 
     public SensorRecord() {
         timestamp = null;
-        value = null;
+        value = 0.0;
         id = null;
         producerId = null;
     }

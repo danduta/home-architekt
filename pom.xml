@@ -9,7 +9,7 @@
     <packaging>pom</packaging>
     <version>1.0</version>
     <modules>
-        <module>home-architekt-service</module>
+        <module>home-architekt-outlier-detector</module>
         <module>home-architekt-producer</module>
         <module>home-architekt-model</module>
     </modules>
