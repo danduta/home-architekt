@@ -19,8 +19,6 @@ import java.io.IOException;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 public class SensorProducerSimulator {
@@ -52,8 +50,6 @@ public class SensorProducerSimulator {
     private static final Properties props = new Properties();
     private static final Logger log = Logger.getLogger(SensorProducerSimulator.class);
 
-    private static ExecutorService executorService;
-
     private static final Set<NoisyRecordProducerPattern> noisePatterns = new HashSet<>();
 
     static {
@@ -71,7 +67,6 @@ public class SensorProducerSimulator {
             int threadCount = System.getenv(THREAD_COUNT) != null ?
                     Integer.parseInt(System.getenv(THREAD_COUNT)) : DEFAULT_THREAD_COUNT;
 
-            executorService = Executors.newFixedThreadPool(2 * threadCount);
             for (int i = 0; i < threadCount; i++) {
                 noisePatterns.add(new NoisyRecordProducerPattern());
             }
@@ -116,7 +111,7 @@ public class SensorProducerSimulator {
                     Map<String, String> trimmedRecord = record.toMap();
                     trimmedRecord.entrySet().removeIf(entry -> !topics.contains(entry.getKey()));
 
-                    processRecordRow(trimmedRecord, executorService);
+                    processRecordRow(trimmedRecord);
                 }
 
                 if (loopProducers) {
@@ -131,12 +126,11 @@ public class SensorProducerSimulator {
         } catch (Exception e) {
             log.error(e);
         } finally {
-            executorService.shutdown();
             InstrumentedNoisyRecordProducer.stop();
         }
     }
 
-    private static void processRecordRow(Map<String, String> record, ExecutorService executorService) {
+    private static void processRecordRow(Map<String, String> record) {
 
         for (Entry<String, String> e : record.entrySet()) {
             String topic = e.getKey();
@@ -149,7 +143,7 @@ public class SensorProducerSimulator {
                 continue;
             }
 
-            noisePatterns.forEach(pattern -> executorService.submit(new NoisyRecordCallback(topic, value, pattern)));
+            noisePatterns.forEach(pattern -> new NoisyRecordCallback(topic, value, pattern).run());
         }
     }
 

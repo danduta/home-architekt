@@ -39,7 +39,7 @@ public class Application {
         conf.setExecutorEnv(KAFKA_ENDPOINT, System.getenv(KAFKA_ENDPOINT));
 
         JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(1));
-        jssc.checkpoint("/tmp");
+        jssc.checkpoint("/tmp/cp");
         jssc.sparkContext().setLogLevel("WARN");
 
         Broadcast<KafkaSink> sink = jssc.sparkContext().broadcast(new KafkaSink());
@@ -81,10 +81,9 @@ public class Application {
         kafkaConsumerParams.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv(KAFKA_ENDPOINT));
         kafkaConsumerParams.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, UUIDDeserializer.class);
         kafkaConsumerParams.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, SensorRecordDeserializer.class);
-        kafkaConsumerParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        kafkaConsumerParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        kafkaConsumerParams.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+        kafkaConsumerParams.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
         kafkaConsumerParams.put(ConsumerConfig.GROUP_ID_CONFIG, UUID.randomUUID().toString());
-        kafkaConsumerParams.put("startingOffsets", "earliest");
         return kafkaConsumerParams;
     }
 }
