@@ -15,7 +15,7 @@ public class OutlierSerializer implements Serializer<Outlier> {
     @Override
     public byte[] serialize(String s, Outlier outlier) {
         try {
-            return mapper.valueToTree(outlier).binaryValue();
+            return mapper.writeValueAsBytes(outlier);
         } catch (Exception e) {
             logger.error("Serialization failed", e);
             throw new SerializationException("Failed to serialize SensorRecord");
