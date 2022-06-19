@@ -16,6 +16,7 @@ different streams of data.
 
 ### How to run ###
 
+#### Installing the hem chart ####
 Firstly, you need to make sure that the Helm chart's dependencies are met. The chart is not pushed to any repository, so
 this step is mandatory.
 
@@ -27,6 +28,16 @@ Now you can install the Helm chart in the Kubernetes cluster:
 
 ```shell
 $ helm install release-name infra/outlier-detector
+```
+<br>
+
+#### Deploying only the Spark application in a Kubernetes cluster
+Alternatively, you can deploy the Spark application directly with the `outlier-detector.yaml` file provided in the `infra` directory.
+First, you need to make sure that the environment provided in `outlier-detector.yaml` points to the right Kafka and Spark endpoints.
+Then run the following command in a shell where `kubectl` is configured:
+
+```shell
+$ kubectl apply -f infra/outline-detector.yaml
 ```
 
 <br>
