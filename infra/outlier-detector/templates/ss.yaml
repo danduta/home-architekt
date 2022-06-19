@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "outlier-detector.fullname" . }}
+  labels:
+    {{- include "outlier-detector.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "outlier-detector.fullname" . }}-external
+  replicas: {{ .Values.replicaCount | default 1}}
+  selector:
+    matchLabels:
+      {{- include "outlier-detector.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "outlier-detector.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+        env:
+        - name: KAFKA_ENDPOINT
+          value: http://{{ .Release.Name }}-kafka.default.svc.cluster.local:9092
+        - name: SPARK_ENDPOINT
+          value: spark://{{ .Release.Name }}-spark-master-svc.default.svc.cluster.local:7077
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        volumeMounts:
+          - name: outlier-detector-cp
+            mountPath: /tmp/cp
+        ports:
+          - containerPort: 4040
+            name: spark-ui
+            protocol: TCP
+      restartPolicy: Always
+      volumes:
+        - name: outlier-detector-cp
+          emptyDir: {}

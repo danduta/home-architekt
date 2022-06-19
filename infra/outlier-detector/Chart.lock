@@ -1,0 +1,9 @@
+dependencies:
+- name: kafka
+  repository: https://charts.bitnami.com/bitnami
+  version: 18.0.0
+- name: spark
+  repository: https://charts.bitnami.com/bitnami
+  version: 6.1.10
+digest: sha256:fb167909f26c91f44c5a458ba99fdb2adac3553dca89fa3bcbc44a8e88d9f90e
+generated: "2022-06-19T12:54:40.48387523+03:00"
