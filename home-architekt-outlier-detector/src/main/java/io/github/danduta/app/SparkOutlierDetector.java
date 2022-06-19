@@ -1,11 +1,9 @@
 package io.github.danduta.app;
 
-import io.github.danduta.detector.impl.OutlierStreamProcessor;
 import io.github.danduta.detector.StreamProcessor;
-import io.github.danduta.detector.impl.StatefulOutlierMappingFunction;
+import io.github.danduta.detector.impl.OutlierStreamProcessor;
 import io.github.danduta.model.Outlier;
 import io.github.danduta.model.PotentialOutlier;
-import io.github.danduta.model.SensorRecord;
 import io.github.danduta.serde.SensorRecordDeserializer;
 import io.github.danduta.sink.impl.OutlierKafkaSink;
 import io.github.danduta.sink.impl.OutlierKafkaStreamSink;
@@ -24,7 +22,6 @@ import org.apache.spark.streaming.kafka010.KafkaUtils;
 import org.apache.spark.streaming.kafka010.LocationStrategies;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.Tuple2;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -41,12 +38,13 @@ public class SparkOutlierDetector {
         conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer");
         conf.set("spark.streaming.backpressure.enabled", "true");
         conf.set("spark.streaming.backpressure.initialRate", "100000");
+        conf.set("spark.stream.backpressure.maxRate", "200000");
         conf.registerKryoClasses(new Class[]{ConsumerRecord.class});
         conf.setExecutorEnv(KAFKA_ENDPOINT, System.getenv(KAFKA_ENDPOINT));
 
         JavaStreamingContext jssc = new JavaStreamingContext(conf, Durations.seconds(1));
         jssc.checkpoint("/tmp/cp");
-//        jssc.sparkContext().setLogLevel("WARN");
+        jssc.sparkContext().setLogLevel("WARN");
 
         Broadcast<OutlierKafkaSink> sink = jssc.sparkContext().broadcast(new OutlierKafkaSink());
 
@@ -62,7 +60,6 @@ public class SparkOutlierDetector {
         OutlierKafkaStreamSink streamSink = new OutlierKafkaStreamSink();
 
         JavaDStream<Outlier> outlierStream = processor.process(stream);
-        outlierStream.count().print();
         streamSink.persistInSink(outlierStream, sink.getValue());
 
         jssc.start();

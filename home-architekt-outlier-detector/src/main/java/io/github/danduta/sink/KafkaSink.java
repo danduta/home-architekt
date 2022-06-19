@@ -1,16 +1,12 @@
 package io.github.danduta.sink;
 
 import io.github.danduta.app.SparkOutlierDetector;
-import io.github.danduta.model.Outlier;
-import io.github.danduta.serde.OutlierSerializer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.Serializer;
-import org.apache.kafka.common.serialization.UUIDSerializer;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 public abstract class KafkaSink<K, V> {
     protected static final String KAFKA_TOPIC = "outliers";

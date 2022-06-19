@@ -1,187 +1,52 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Service
 metadata:
-  annotations:
-    autopilot.gke.io/resource-adjustment: >-
-      {"input":{"containers":[{"name":"home-architekt-outlier-detector-sha256-1"}]},"output":{"containers":[{"limits":{"cpu":"500m","ephemeral-storage":"1Gi","memory":"2Gi"},"requests":{"cpu":"500m","ephemeral-storage":"1Gi","memory":"2Gi"},"name":"home-architekt-outlier-detector-sha256-1"}]},"modified":true}
+  name: outlier-detector-external
   labels:
     app: outlier-detector
-  managedFields:
-    - apiVersion: apps/v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        'f:metadata':
-          'f:labels':
-            .: {}
-            'f:app': {}
-        'f:spec':
-          'f:progressDeadlineSeconds': {}
-          'f:replicas': {}
-          'f:revisionHistoryLimit': {}
-          'f:selector': {}
-          'f:strategy':
-            'f:rollingUpdate':
-              .: {}
-              'f:maxSurge': {}
-              'f:maxUnavailable': {}
-            'f:type': {}
-          'f:template':
-            'f:metadata':
-              'f:labels':
-                .: {}
-                'f:app': {}
-            'f:spec':
-              'f:containers':
-                'k:{"name":"home-architekt-outlier-detector-sha256-1"}':
-                  .: {}
-                  'f:env':
-                    .: {}
-                    'k:{"name":"KAFKA_ENDPOINT"}':
-                      .: {}
-                      'f:name': {}
-                      'f:valueFrom':
-                        .: {}
-                        'f:configMapKeyRef': {}
-                  'f:image': {}
-                  'f:imagePullPolicy': {}
-                  'f:name': {}
-                  'f:resources': {}
-                  'f:terminationMessagePath': {}
-                  'f:terminationMessagePolicy': {}
-              'f:dnsPolicy': {}
-              'f:restartPolicy': {}
-              'f:schedulerName': {}
-              'f:securityContext': {}
-              'f:terminationGracePeriodSeconds': {}
-      manager: GoogleCloudConsole
-      operation: Update
-      time: '2022-06-17T16:11:13Z'
-    - apiVersion: apps/v1
-      fieldsType: FieldsV1
-      fieldsV1:
-        'f:metadata':
-          'f:annotations':
-            'f:deployment.kubernetes.io/revision': {}
-        'f:status':
-          'f:availableReplicas': {}
-          'f:conditions':
-            .: {}
-            'k:{"type":"Available"}':
-              .: {}
-              'f:lastTransitionTime': {}
-              'f:lastUpdateTime': {}
-              'f:message': {}
-              'f:reason': {}
-              'f:status': {}
-              'f:type': {}
-            'k:{"type":"Progressing"}':
-              .: {}
-              'f:lastTransitionTime': {}
-              'f:lastUpdateTime': {}
-              'f:message': {}
-              'f:reason': {}
-              'f:status': {}
-              'f:type': {}
-          'f:observedGeneration': {}
-          'f:readyReplicas': {}
-          'f:replicas': {}
-          'f:updatedReplicas': {}
-      manager: kube-controller-manager
-      operation: Update
-      subresource: status
-      time: '2022-06-17T16:14:32Z'
-  name: outlier-detector
-  namespace: default
 spec:
-  replicas: 3
+  type: LoadBalancer
+  ports:
+  - port: 4040
+    name: spark-ui
+  selector:
+    app: outlier-detector
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: outlier-detector
+spec:
+  replicas: 1
+  serviceName: outlier-detector-external
   selector:
     matchLabels:
       app: outlier-detector
-  strategy:
-    rollingUpdate:
-      maxSurge: 25%
-      maxUnavailable: 25%
-    type: RollingUpdate
   template:
     metadata:
+      name: outlier-detector
       labels:
         app: outlier-detector
     spec:
       containers:
-        - env:
-            - name: KAFKA_ENDPOINT
-              valueFrom:
-                configMapKeyRef:
-                  key: KAFKA_ENDPOINT
-                  name: outlier-detector-config-dubu
-          image: gcr.io/bachelor-2022/github.com/danduta/home-architekt
-          imagePullPolicy: IfNotPresent
-          name: home-architekt-outlier-detector-sha256-1
-          resources:
-            limits:
-              cpu: 500m
-              ephemeral-storage: 1Gi
-              memory: 2Gi
-            requests:
-              cpu: 500m
-              ephemeral-storage: 1Gi
-              memory: 2Gi
-          securityContext:
-            capabilities:
-              drop:
-                - NET_RAW
-      securityContext:
-        seccompProfile:
-          type: RuntimeDefault
----
-apiVersion: autoscaling/v2beta1
-kind: HorizontalPodAutoscaler
-metadata:
-  labels:
-    app: outlier-detector
-  managedFields:
-    - apiVersion: autoscaling/v2beta1
-      fieldsType: FieldsV1
-      fieldsV1:
-        'f:metadata':
-          'f:labels':
-            .: {}
-            'f:app': {}
-        'f:spec':
-          'f:maxReplicas': {}
-          'f:metrics': {}
-          'f:minReplicas': {}
-          'f:scaleTargetRef':
-            'f:apiVersion': {}
-            'f:kind': {}
-            'f:name': {}
-      manager: GoogleCloudConsole
-      operation: Update
-      time: '2022-06-17T16:11:13Z'
-    - apiVersion: autoscaling/v2beta2
-      fieldsType: FieldsV1
-      fieldsV1:
-        'f:status':
-          'f:conditions': {}
-          'f:currentMetrics': {}
-          'f:currentReplicas': {}
-          'f:desiredReplicas': {}
-      manager: vpa-recommender
-      operation: Update
-      subresource: status
-      time: '2022-06-17T16:11:30Z'
-  name: outlier-detector-hpa-kuzc
-  namespace: default
-spec:
-  maxReplicas: 5
-  metrics:
-    - resource:
-        name: cpu
-        targetAverageUtilization: 80
-      type: Resource
-  minReplicas: 1
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: outlier-detector
+      - name: spark-driver
+        image: danduta/outlier-detector:latest
+        env:
+        - name: KAFKA_ENDPOINT
+          value: http://kafka.default.svc.cluster.local:9092
+        - name: SPARK_ENDPOINT
+          value: spark://spark-master-svc.default.svc.cluster.local:7077
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        volumeMounts:
+        - name: outlier-detector-cp
+          mountPath: /tmp/cp
+      restartPolicy: Always
+      volumes:
+        - name: outlier-detector-cp
+          emptyDir: {}
 

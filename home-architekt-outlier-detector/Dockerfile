@@ -1,3 +1,6 @@
+# The context must be the root of the repository: '..' relative to this Dockerfile
+# Otherwise, the build will fail.
+
 FROM maven:3.5-jdk-11 as build-model
 
 # build the model SDK
@@ -17,7 +20,6 @@ WORKDIR /service
 COPY home-architekt-outlier-detector/pom.xml ./pom.xml
 COPY --from=build-model /home-architekt-model-*.jar ./model.jar
 RUN mvn org.apache.maven.plugins:maven-install-plugin:2.5.2:install-file -Dfile=./model.jar
-RUN mvn dependency:go-offline
 # copy source files
 COPY home-architekt-outlier-detector/src ./src
 # build for release
@@ -33,4 +35,4 @@ WORKDIR /app
 COPY --from=build-service /service.jar .
 
 # set the startup command to run your binary
-CMD spark-submit --class io.github.danduta.app.SparkOutlierDetector --master spark://spark-master:7077 ./service.jar
+CMD spark-submit --class io.github.danduta.app.SparkOutlierDetector --conf spark.driver.host=$POD_IP --master $SPARK_ENDPOINT ./service.jar
