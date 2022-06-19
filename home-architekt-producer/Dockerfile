@@ -17,7 +17,7 @@ WORKDIR /producer
 COPY home-architekt-producer/pom.xml ./pom.xml
 COPY --from=build-model /home-architekt-model-*.jar ./model.jar
 RUN mvn org.apache.maven.plugins:maven-install-plugin:2.5.2:install-file -Dfile=./model.jar
-RUN mvn dependency:go-offline
+RUN mvn verify clean --fail-never
 # copy source files
 COPY home-architekt-producer/src ./src
 # build for release

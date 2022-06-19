@@ -20,6 +20,7 @@ WORKDIR /service
 COPY home-architekt-outlier-detector/pom.xml ./pom.xml
 COPY --from=build-model /home-architekt-model-*.jar ./model.jar
 RUN mvn org.apache.maven.plugins:maven-install-plugin:2.5.2:install-file -Dfile=./model.jar
+RUN mvn verify clean --fail-never
 # copy source files
 COPY home-architekt-outlier-detector/src ./src
 # build for release
