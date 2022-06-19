@@ -1,5 +1,5 @@
 service:
-  type: LoadBalancer
+  type: ClusterIP
 worker:
   extraVolumes:
     - name: checkpoint
@@ -7,9 +7,6 @@ worker:
   extraVolumeMounts:
     - name: checkpoint
       mountPath: /tmp/cp
-  extraEnvVars:
-    - name: "KAFKA_ENDPOINT"
-      value: "http://34.79.246.215:9094"
 master:
   extraVolumes:
     - name: checkpoint
@@ -17,7 +14,4 @@ master:
   extraVolumeMounts:
     - name: checkpoint
       mountPath: /tmp/cp
-  extraEnvVars:
-    - name: "KAFKA_ENDPOINT"
-      value: "http://34.79.246.215:9094"
 
